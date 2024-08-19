@@ -80,13 +80,13 @@ const Add = ({ stories, setStories, setIsAdding, getStories }) => {
       const posterRef = ref(storage, `/posters/${posterFile.name}`);
       await uploadBytes(posterRef, posterFile);
       const posterDownloadURL = await getDownloadURL(posterRef);
-      setPoster(`/posters/${posterFile.name}`);
+      setPoster(posterDownloadURL);
 
       // Upload Audio
       const audioRef = ref(storage, `/audios/${audioFile.name}`);
       await uploadBytes(audioRef, audioFile);
       const audioDownloadURL = await getDownloadURL(audioRef);
-      setContentURL(`/audios/${audioFile.name}`);
+      setContentURL(audioDownloadURL);
 
       setUploading(false);
 
@@ -159,6 +159,66 @@ const Add = ({ stories, setStories, setIsAdding, getStories }) => {
     if (narrator.trim()) {
       setNarrators((prevNarrators) => [...prevNarrators, { name: narrator }]);
       setNarrator('');
+    }
+  };
+
+  const createNewPlaylist = async () => {
+    const { value: formValues } = await Swal.fire({
+      title: 'Create New Playlist',
+      html: `
+        <input id="swal-input1" class="swal2-input" placeholder="Playlist Name">
+        <textarea id="swal-input2" class="swal2-textarea" placeholder="Description"></textarea>
+        <input id="swal-input3" class="swal2-input" placeholder="Total Duration">
+        <input id="swal-input4" class="swal2-input" placeholder="Rating">
+        <input id="swal-input5" class="swal2-input" placeholder="Poster URL">
+        <input id="swal-input6" class="swal2-input" placeholder="Tag">
+      `,
+      focusConfirm: false,
+      preConfirm: () => {
+        return {
+          name: document.getElementById('swal-input1').value,
+          description: document.getElementById('swal-input2').value,
+          duration: document.getElementById('swal-input3').value,
+          rating: document.getElementById('swal-input4').value,
+          poster: document.getElementById('swal-input5').value,
+          tag: document.getElementById('swal-input6').value,
+          stories: [], // Initialize with an empty array for stories
+        };
+      },
+      showCancelButton: true,
+      confirmButtonText: 'Create',
+      inputValidator: (value) => {
+        if (!value.name || !value.description || !value.duration || !value.rating || !value.poster || !value.tag) {
+          return 'All fields are required!';
+        }
+      },
+    });
+
+    if (formValues) {
+      try {
+        await setDoc(doc(db, 'playlists', formValues.name), formValues);
+        Swal.fire({
+          icon: 'success',
+          title: 'Playlist Created!',
+          text: `Playlist "${formValues.name}" has been created successfully.`,
+          showConfirmButton: false,
+          timer: 1500,
+        });
+        const querySnapshot = await getDocs(collection(db, 'playlists'));
+        const playlists = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setOptions(playlists);
+      } catch (error) {
+        console.error('Error creating playlist:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error!',
+          text: 'Failed to create playlist.',
+          showConfirmButton: true,
+        });
+      }
     }
   };
 
@@ -253,6 +313,9 @@ const Add = ({ stories, setStories, setIsAdding, getStories }) => {
           </select>
           <button type="button" className="set-playlist-btn" onClick={handleSelectPlaylist}>
             Set Playlist
+          </button>
+          <button type="button" className="create-playlist-btn" onClick={createNewPlaylist}>
+            + Create New Playlist
           </button>
         </div>
 
